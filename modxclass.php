@@ -66,11 +66,17 @@ class DB {
 		$template= $sth->fetch(PDO::FETCH_ASSOC);
 		$sth->closeCursor();
 
-		// ----------------------------------------Get chunks----------------------------------------
+		// -------------------------------------Make the output and ---Get chunks----------------------------------------
+		$out = preg_replace( "/\[\[\*content\]\]/", $content["content"], $template["content"]);
+		
+		preg_match_all("/\[\[[a-zA-Z0-9_?$&=`\s]{1,}\]\]/", $template["content"], $chunkarray, PREG_SET_ORDER);
+		
+		//foreach ()
+		//var_dump($chunkarray);
 		//$tmp=preg_match_all("/\[\[\$(SiteHead|MainMenu|ADBigBan|ADBan|ADBanRight|Social|ADBigBan2|SiteFoot)\]\]/",$contents,$out)
 		//$template["content"] = preg_replace("/\[\[\$SiteHead\]\]/", , $template["content"]);
 		
-		return preg_replace( "/\[\[\*content\]\]/", $content["content"], $template["content"]);
+		return $out;
 
 	}
 
