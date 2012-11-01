@@ -88,8 +88,6 @@ class DB {
 		//$tmp=preg_match_all("/\[\[\$(SiteHead|MainMenu|ADBigBan|ADBan|ADBanRight|Social|ADBigBan2|SiteFoot)\]\]/",$contents,$out)
 		//$template["content"] = preg_replace("/\[\[\$SiteHead\]\]/", , $template["content"]);
 		
-		
-		//printf (preg_replace($chunks['name'], $chunks['snippet'], $template["content"])) ;
 		return preg_replace( "/\[\[\*content\]\]/", $content["content"], $template["content"]);
 
 	}
