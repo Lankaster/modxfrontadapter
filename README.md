@@ -1,2 +1,4 @@
 modxfrontadapter
 ================
+
+Test Adapter
