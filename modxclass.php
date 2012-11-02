@@ -13,6 +13,7 @@ class DB {
 	private $dbName = "max";
 	private $userstable = "modx_site_content";
 	private $templatetable = "modx_site_templates_fast";
+	private $chunktable = "modx_site_htmlsnippets";
 
 	public final function __clone()
 	{
@@ -51,7 +52,7 @@ class DB {
 	 */
 	public function getPageFromAlias($uri) 
 	{
-		
+				
 		//$conn=self::BaseConnect();
 		$conn=$this->BaseConnect();
 		
@@ -65,11 +66,24 @@ class DB {
 		$sth->execute();
 		$template= $sth->fetch(PDO::FETCH_ASSOC);
 		$sth->closeCursor();
+		
 
 		// -------------------------------------Make the output and ---Get chunks----------------------------------------
 		$out = preg_replace( "/\[\[\*content\]\]/", $content["content"], $template["content"]);
-		
-		preg_match_all("/\[\[[a-zA-Z0-9_?$&=`\s]{1,}\]\]/", $template["content"], $chunkarray, PREG_SET_ORDER);
+		unset ($content);
+		preg_match_all("/\[\[[$]{0,}([a-zA-Z0-9_]{1,})([[?]{0,1}[a-zA-Z0-9_&=`\s]{0,}]{0,})\]\]/", $template["content"], $chunkarray, PREG_SET_ORDER);
+		// $chunkarray[0]<-ChunkString $chunkarray[1]<- ChunkName $chunkarray[3]<- Parametrs
+
+		//var_dump($chunkarray);
+		foreach ($chunkarray as $chunk)
+		{
+			$sth = $conn->prepare("SELECT snippet as 'snippet' FROM ".$this->chunktable." WHERE name='".$chunk[1]."' LIMIT 1");
+			$sth->execute();
+			$content= $sth->fetch(PDO::FETCH_ASSOC);
+			$sth->closeCursor();
+			$out = str_replace($chunk[0], $content["snippet"], $out);
+			//var_dump($sth, $chunk, $content);
+		};
 		
 		//foreach ()
 		//var_dump($chunkarray);
