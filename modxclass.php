@@ -2,7 +2,12 @@
 defined( '_NE' ) or die( 'Restricted access' );
 
 class DB {
+	const DB_TEMPLATE=1;
+	const DB_CONTENT=2;
+	const DB_CHUNK=3;
+	
 	private $dbobj;
+	private $DB_cache;
 	private $DB_dbh;
 	private $DB_template;
 	private $DB_content;
@@ -12,9 +17,11 @@ class DB {
 	private $password = "maxmax";
 	private $dbName = "max";
 	private $userstable = "modx_site_content";
-	private $templatetable = "modx_site_templates_fast";
+	private $templatetable = "modx_site_templates";
 	private $chunktable = "modx_site_htmlsnippets";
 
+	public function __construct(){
+		} 
 	public final function __clone()
 	{
 		throw new BadMethodCallException("Clone is not allowed");
@@ -28,7 +35,8 @@ class DB {
 	 */
 	private function BaseConnect() {
 		$this->DB_dbh = new PDO('mysql:host='.$this->hostname.';dbname='.$this->dbName ,$this->username,$this->password,array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"));
-		return $this->DB_dbh;
+		$this->DB_cache = new XCache ();
+				
 	}
 	/**
 	 * BaseClose()
@@ -53,46 +61,70 @@ class DB {
 	public function getPageFromAlias($uri) 
 	{
 				
-		//$conn=self::BaseConnect();
 		$conn=$this->BaseConnect();
-		
-		// Get content
-		$sth = $conn->prepare("SELECT id as 'id', pagetitle as 'title' , template as 'template', content as 'content' FROM ".$this->userstable." WHERE uri= '".$uri."' LIMIT 0 , 1");
-		$sth->execute();
-		$content = $sth->fetch(PDO::FETCH_ASSOC);
-		$sth->closeCursor();
-		
-		$sth = $conn->prepare("SELECT content as 'content' FROM ".$this->templatetable." WHERE id= '6' LIMIT 0 , 1");
-		$sth->execute();
-		$template= $sth->fetch(PDO::FETCH_ASSOC);
-		$sth->closeCursor();
-		
+		$content=$this->GetContent($uri, 1);
+		$template=$this->GetContent($content["template"], 0);
 
 		// -------------------------------------Make the output and ---Get chunks----------------------------------------
 		$out = preg_replace( "/\[\[\*content\]\]/", $content["content"], $template["content"]);
 		unset ($content);
 		preg_match_all("/\[\[[$]{0,}([a-zA-Z0-9_]{1,})([[?]{0,1}[a-zA-Z0-9_&=`\s]{0,}]{0,})\]\]/", $template["content"], $chunkarray, PREG_SET_ORDER);
 		// $chunkarray[0]<-ChunkString $chunkarray[1]<- ChunkName $chunkarray[3]<- Parametrs
-
-		//var_dump($chunkarray);
+		
 		foreach ($chunkarray as $chunk)
 		{
-			$sth = $conn->prepare("SELECT snippet as 'snippet' FROM ".$this->chunktable." WHERE name='".$chunk[1]."' LIMIT 1");
-			$sth->execute();
-			$content= $sth->fetch(PDO::FETCH_ASSOC);
-			$sth->closeCursor();
-			$out = str_replace($chunk[0], $content["snippet"], $out);
-			//var_dump($sth, $chunk, $content);
+			$content=$this->GetContent($chunk[1], 2);
+			$out = str_replace($chunk[0], $content["content"], $out);
 		};
 		
-		//foreach ()
-		//var_dump($chunkarray);
-		//$tmp=preg_match_all("/\[\[\$(SiteHead|MainMenu|ADBigBan|ADBan|ADBanRight|Social|ADBigBan2|SiteFoot)\]\]/",$contents,$out)
-		//$template["content"] = preg_replace("/\[\[\$SiteHead\]\]/", , $template["content"]);
+		$out = str_replace ("[[++site_url]]","http://localhost/",$out);
 		
 		return $out;
 
 	}
 
+	private function GetContent ($key, $type){
+		switch ($type) {
+			case 0: //Get template
+				//$this->DB_dbh
+				$cache = $this->DB_cache->get($key);
+				if (!isset($cache))
+				{
+				$sth = $this->DB_dbh->prepare("SELECT content as 'content' FROM ".$this->templatetable." WHERE id= '".$key."' LIMIT 0 , 1");
+				$sth->execute();
+				$arr=$sth->fetch(PDO::FETCH_ASSOC);
+				$sth->closeCursor();
+				$this->DB_cache->set($key,serialize($arr));
+				}
+				else {$arr=unserialize($cache);}
+				break;
+			case 1: //Get content
+				$cache = $this->DB_cache->get($key);
+				if (!isset($cache))
+				{
+				$sth = $this->DB_dbh->prepare("SELECT id as 'id', pagetitle as 'title' , template as 'template', content as 'content' FROM ".$this->userstable." WHERE uri= '".$key."' LIMIT 0 , 1");
+				$sth->execute();
+				$arr = $sth->fetch(PDO::FETCH_ASSOC);
+				$sth->closeCursor();
+				$this->DB_cache->set($key,serialize($arr));
+				}
+				else {$arr=unserialize($cache);}
+				break;
+			case 2: //Get chunks
+				$cache = $this->DB_cache->get($key);
+				if (!isset($cache))
+				{
+				$sth = $this->DB_dbh->prepare("SELECT snippet as 'content' FROM ".$this->chunktable." WHERE name='".$key."' LIMIT 1");
+				$sth->execute();
+				$arr= $sth->fetch(PDO::FETCH_ASSOC);
+				$sth->closeCursor();
+				$this->DB_cache->set($key,serialize($arr));
+				}
+				else {$arr=unserialize($cache);}
+				break;
+		}
+		return $arr;
+	}
+	
 }
 ?>
